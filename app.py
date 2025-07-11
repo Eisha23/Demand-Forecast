@@ -147,8 +147,8 @@ if uploaded_file:
     # Models
     if st.button("Train Models and Forecast"):
         models = {
-            'CatBoost': CatBoostRegressor(cat_features=['SKU_encoded'], verbose=0),
-            'XGBoost': XGBRegressor(n_estimators=500, learning_rate=0.03, max_depth=6, subsample=0.8, colsample_bytree=0.8),
+           # 'CatBoost': CatBoostRegressor(cat_features=['SKU_encoded'], verbose=0),
+           # 'XGBoost': XGBRegressor(n_estimators=500, learning_rate=0.03, max_depth=6, subsample=0.8, colsample_bytree=0.8),
             'LightGBM': LGBMRegressor(n_estimators=400, learning_rate=0.05, max_depth=4),
             'RandomForest': RandomForestRegressor(n_estimators=300, max_depth=8),
             'GradientBoosting': GradientBoostingRegressor()
@@ -160,7 +160,8 @@ if uploaded_file:
             logging.info("Running", name)
             st.write("Running", name)
             model.fit(X_train, y_train)
-            joblib.dump(model, f"{name.lower()}.joblib")
+            file_name = name.replace(' ', '_').lower()
+            joblib.dump(model, f"saved_models/{file_name}.joblib")
             y_pred = model.predict(X_test)
             results.append({
                 'Model': name,
@@ -175,7 +176,12 @@ if uploaded_file:
         st.dataframe(results_df)
 
         #  Save the name of the best model
+        
         best_model_name = results_df.loc[0, 'Model']
+        file_safe_model_name = best_model_name.replace(' ', '_').lower()
+        with open("saved_models/best_model.txt", "w") as f:
+            f.write(file_safe_model_name)
+
         st.success(f"✅ Best model: {best_model_name}")
         logging.info("Best model saved.")
 
