@@ -145,7 +145,7 @@ if uploaded_file:
 
         forecast_weeks = 6
         data = data.sort_values(['SKU', 'Week'])
-        data['SKU_encoded'] = data['SKU_encoded'].astype(int).astype(str)
+        data['SKU_encoded'] = data['SKU_encoded'].astype(int)
         inverse_map = data[['SKU', 'SKU_encoded']].drop_duplicates().set_index('SKU_encoded')['SKU'].to_dict()
         train = data[data['Week'].isin(train_weeks)]
         sku_mean_map = train.groupby('SKU')['Units'].mean().to_dict()
