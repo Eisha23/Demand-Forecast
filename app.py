@@ -117,17 +117,9 @@ if uploaded_file:
         results = []
         for name, model in models.items():
             st.write("Running", name)
-
-            if name == 'CatBoostRegressor':
-                train_pool = Pool(X_train, y_train, cat_features=['SKU_encoded'])
-                test_pool = Pool(X_test, y_test, cat_features=['SKU_encoded'])
-                model.fit(train_pool)
-                joblib.dump(model, f"saved_models/{name.lower()}.joblib")
-                y_pred = model.predict(test_pool)
-            else:
-                model.fit(X_train, y_train)
-                joblib.dump(model, f"saved_models/{name.lower()}.joblib")
-                y_pred = model.predict(X_test)
+            model.fit(X_train, y_train)
+            joblib.dump(model, f"saved_models/{name.lower()}.joblib")
+            y_pred = model.predict(X_test)
             results.append({
                 'Model': name,
                 'MSE': mean_squared_error(y_test, y_pred),
