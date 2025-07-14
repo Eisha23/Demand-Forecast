@@ -37,7 +37,7 @@ if uploaded_file:
     st.success("CSV loaded successfully.")
     st.write("Preprocessing file...")
 
-    subheader("Week Range")
+    st.subheader("Week Range")
     range_type = st.radio("Select Range", ['Auto-detect', 'Manual'])
     if range_type == 'Auto-detect':
         start_week, end_week = int(data['Week'].min()), int(data['Week'].max())
@@ -104,10 +104,11 @@ if uploaded_file:
 
         X_train['SKU_encoded'] = X_train['SKU_encoded'].astype(str)
         X_test['SKU_encoded'] = X_test['SKU_encoded'].astype(str)
+        cat_features = ['SKU_encoded']
 
         if st.button("Train Models and Forecast"):
         models = {
-            'CatBoostRegressor': CatBoostRegressor(cat_feeverbose=0, iterations=200, depth=6, learning_rate=0.1, random_strength=0.01, l2_leaf_reg=2),
+            'CatBoostRegressor': CatBoostRegressor(cat_features=cat_feature, verbose=0, iterations=200, depth=6, learning_rate=0.1, random_strength=0.01, l2_leaf_reg=2),
           #  'XGB Regressor': XGBRegressor(n_estimators=500, learning_rate=0.03, max_depth=6, subsample=0.8, colsample_bytree=0.8, reg_alpha=0.1, reg_lambda=1.0, gamma=0.1, min_child_weight=3, verbosity=0, random_state=42),
           #  'Light GBM Regressor': LGBMRegressor(n_estimators=400, learning_rate=0.05, max_depth=4, subsample=0.8, colsample_bytree=0.8, reg_alpha=0.1, reg_lambda=1.0, random_state=42, verbosity=-1),
            # 'Random Forest': RandomForestRegressor(n_estimators=300, max_depth=8, min_samples_split=10, min_samples_leaf=5, max_features=0.6, random_state=42, n_jobs=-1),
