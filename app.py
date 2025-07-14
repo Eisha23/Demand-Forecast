@@ -17,7 +17,6 @@ import logging
 
 # --- Setup ---
 os.makedirs("saved_models", exist_ok=True)
-logging.basicConfig(filename='app.log', level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
 st.set_page_config(page_title="Demand Forecast", layout="wide")
 st.title("📦 Demand Forecasting App")
@@ -37,8 +36,9 @@ uploaded_file = st.file_uploader("Upload CSV", type="csv")
 if uploaded_file:
     data = pd.read_csv(uploaded_file)[['SKU', 'Week', 'Units']]
     st.success("CSV loaded successfully.")
+    st.write("Preprocessing file...")
 
-    st.subheader("Week Range")
+    subheader("Week Range")
     range_type = st.radio("Select Range", ['Auto-detect', 'Manual'])
     if range_type == 'Auto-detect':
         start_week, end_week = int(data['Week'].min()), int(data['Week'].max())
@@ -106,10 +106,10 @@ if uploaded_file:
     if st.button("Train Models and Forecast"):
         models = {
             'CatBoostRegressor': CatBoostRegressor(verbose=0, iterations=200, depth=6, learning_rate=0.1, random_strength=0.01, l2_leaf_reg=2),
-           # 'XGB Regressor': XGBRegressor(n_estimators=500, learning_rate=0.03, max_depth=6, subsample=0.8, colsample_bytree=0.8, reg_alpha=0.1, reg_lambda=1.0, gamma=0.1, min_child_weight=3, verbosity=0, random_state=42),
-          #  'Light GBM Regressor': LGBMRegressor(n_estimators=400, learning_rate=0.05, max_depth=4, subsample=0.8, colsample_bytree=0.8, reg_alpha=0.1, reg_lambda=1.0, random_state=42, verbosity=-1),
-           # 'Random Forest': RandomForestRegressor(n_estimators=300, max_depth=8, min_samples_split=10, min_samples_leaf=5, max_features=0.6, random_state=42, n_jobs=-1),
-            #'Gradient Boosting': GradientBoostingRegressor(learning_rate=0.1, random_state=42),
+            'XGB Regressor': XGBRegressor(n_estimators=500, learning_rate=0.03, max_depth=6, subsample=0.8, colsample_bytree=0.8, reg_alpha=0.1, reg_lambda=1.0, gamma=0.1, min_child_weight=3, verbosity=0, random_state=42),
+            'Light GBM Regressor': LGBMRegressor(n_estimators=400, learning_rate=0.05, max_depth=4, subsample=0.8, colsample_bytree=0.8, reg_alpha=0.1, reg_lambda=1.0, random_state=42, verbosity=-1),
+            'Random Forest': RandomForestRegressor(n_estimators=300, max_depth=8, min_samples_split=10, min_samples_leaf=5, max_features=0.6, random_state=42, n_jobs=-1),
+            'Gradient Boosting': GradientBoostingRegressor(learning_rate=0.1, random_state=42),
         }
         results = []
         for name, model in models.items():
@@ -195,9 +195,9 @@ if uploaded_file:
 
         st.session_state.forecast_df = forecast_df
 
-# --- Display forecast if available ---
+#  Display forecast
 if st.session_state.forecast_df is not None:
-    st.subheader("📈 Forecast Next 6 Weeks")
+    st.subheader("📈 Forecast of Next 6 Weeks")
     st.dataframe(st.session_state.forecast_df)
     csv = st.session_state.forecast_df.to_csv(index=False).encode('utf-8')
     st.download_button("📥 Download Forecast", data=csv, file_name="forecast.csv")
