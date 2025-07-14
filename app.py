@@ -108,11 +108,11 @@ if uploaded_file:
 
     if st.button("Train Models and Forecast"):
         models = {
-            'CatBoostRegressor': CatBoostRegressor(cat_features=cat_features, verbose=0, iterations=200, depth=6, learning_rate=0.1, random_strength=0.01, l2_leaf_reg=2),
-            # 'XGB Regressor': XGBRegressor(...),
-            # 'Light GBM Regressor': LGBMRegressor(...),
-            # 'Random Forest': RandomForestRegressor(...),
-            # 'Gradient Boosting': GradientBoostingRegressor(...)
+            #'CatBoostRegressor': CatBoostRegressor(cat_features=cat_features, verbose=0, iterations=200, depth=6, learning_rate=0.1, random_strength=0.01, l2_leaf_reg=2),
+           # 'XGB Regressor': XGBRegressor(n_estimators=500, learning_rate=0.03, max_depth=6, subsample=0.8, colsample_bytree=0.8, reg_alpha=0.1, reg_lambda=1.0, gamma=0.1, min_child_weight=3, verbosity=0, random_state=42),
+           # 'Light GBM Regressor': LGBMRegressor(n_estimators=400, learning_rate=0.05, max_depth=4, subsample=0.8, colsample_bytree=0.8, reg_alpha=0.1, reg_lambda=1.0, random_state=42, verbosity=-1),
+           # 'Random Forest': RandomForestRegressor(n_estimators=300, max_depth=8, min_samples_split=10, min_samples_leaf=5, max_features=0.6, random_state=42, n_jobs=-1),
+            'Gradient Boosting': GradientBoostingRegressor(learning_rate=0.1, random_state=42),
         }
         results = []
         for name, model in models.items():
