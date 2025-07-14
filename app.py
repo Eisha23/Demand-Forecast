@@ -69,50 +69,50 @@ if uploaded_file:
 
     for i in range(1, 5):
         data[f'lag_{i}'] = data.groupby('SKU')['Units'].shift(i)
-        data['rolling_mean_2'] = data.groupby('SKU')['Units'].shift(1).rolling(2).mean().reset_index(0, drop=True)
-        data['rolling_mean_3'] = data.groupby('SKU')['Units'].shift(1).rolling(3).mean().reset_index(0, drop=True)
-        data['rolling_mean_4'] = data.groupby('SKU')['Units'].shift(1).rolling(4).mean().reset_index(0, drop=True)
-        data.fillna(0, inplace=True)
-        data = data[data['Week'] >= (start_week + 4)]
+    data['rolling_mean_2'] = data.groupby('SKU')['Units'].shift(1).rolling(2).mean().reset_index(0, drop=True)
+    data['rolling_mean_3'] = data.groupby('SKU')['Units'].shift(1).rolling(3).mean().reset_index(0, drop=True)
+    data['rolling_mean_4'] = data.groupby('SKU')['Units'].shift(1).rolling(4).mean().reset_index(0, drop=True)
+    data.fillna(0, inplace=True)
+    data = data[data['Week'] >= (start_week + 4)]
 
-        all_weeks = sorted(data['Week'].unique())
-        split_point = int(len(all_weeks) * 0.8)
-        train_weeks = all_weeks[:split_point]
-        test_weeks = all_weeks[split_point:]
-        train = data[data['Week'].isin(train_weeks)]
+    all_weeks = sorted(data['Week'].unique())
+    split_point = int(len(all_weeks) * 0.8)
+    train_weeks = all_weeks[:split_point]
+    test_weeks = all_weeks[split_point:]
+    train = data[data['Week'].isin(train_weeks)]
 
-        sku_cumsum = train.groupby('SKU')['Units'].sum().to_dict()
-        sku_mean_map = train.groupby('SKU')['Units'].mean().to_dict()
-        data['cumulative_units'] = data['SKU'].map(sku_cumsum)
-        data['sku_mean'] = data['SKU'].map(sku_mean_map)
-        data['units_to_sku_mean'] = data['Units'] / (data['sku_mean'] + 1e-5)
+    sku_cumsum = train.groupby('SKU')['Units'].sum().to_dict()
+    sku_mean_map = train.groupby('SKU')['Units'].mean().to_dict()
+    data['cumulative_units'] = data['SKU'].map(sku_cumsum)
+    data['sku_mean'] = data['SKU'].map(sku_mean_map)
+    data['units_to_sku_mean'] = data['Units'] / (data['sku_mean'] + 1e-5)
 
-        features = all_features
-        target = 'Units'
-        features_to_scale = [f for f in features if f != 'SKU_encoded']
+    features = all_features
+    target = 'Units'
+    features_to_scale = [f for f in features if f != 'SKU_encoded']
 
-        train = data[data['Week'].isin(train_weeks)]
-        test = data[data['Week'].isin(test_weeks)]
+    train = data[data['Week'].isin(train_weeks)]
+    test = data[data['Week'].isin(test_weeks)]
 
-        scaler = RobustScaler()
-        scaler.fit(train[features_to_scale])
-        joblib.dump(scaler, 'saved_models/robust_scaler.save')
-        data[features_to_scale] = scaler.transform(data[features_to_scale])
+    scaler = RobustScaler()
+    scaler.fit(train[features_to_scale])
+    joblib.dump(scaler, 'saved_models/robust_scaler.save')
+    data[features_to_scale] = scaler.transform(data[features_to_scale])
 
-        X_train, y_train = train[features], train[target]
-        X_test, y_test = test[features], test[target]
+    X_train, y_train = train[features], train[target]
+    X_test, y_test = test[features], test[target]
 
-        X_train['SKU_encoded'] = X_train['SKU_encoded'].astype(str)
-        X_test['SKU_encoded'] = X_test['SKU_encoded'].astype(str)
-        cat_features = ['SKU_encoded']
+    X_train['SKU_encoded'] = X_train['SKU_encoded'].astype(str)
+    X_test['SKU_encoded'] = X_test['SKU_encoded'].astype(str)
+    cat_features = ['SKU_encoded']
 
-        if st.button("Train Models and Forecast"):
+    if st.button("Train Models and Forecast"):
         models = {
-            'CatBoostRegressor': CatBoostRegressor(cat_features=cat_feature, verbose=0, iterations=200, depth=6, learning_rate=0.1, random_strength=0.01, l2_leaf_reg=2),
-          #  'XGB Regressor': XGBRegressor(n_estimators=500, learning_rate=0.03, max_depth=6, subsample=0.8, colsample_bytree=0.8, reg_alpha=0.1, reg_lambda=1.0, gamma=0.1, min_child_weight=3, verbosity=0, random_state=42),
-          #  'Light GBM Regressor': LGBMRegressor(n_estimators=400, learning_rate=0.05, max_depth=4, subsample=0.8, colsample_bytree=0.8, reg_alpha=0.1, reg_lambda=1.0, random_state=42, verbosity=-1),
-           # 'Random Forest': RandomForestRegressor(n_estimators=300, max_depth=8, min_samples_split=10, min_samples_leaf=5, max_features=0.6, random_state=42, n_jobs=-1),
-           # 'Gradient Boosting': GradientBoostingRegressor(learning_rate=0.1, random_state=42),
+            'CatBoostRegressor': CatBoostRegressor(cat_features=cat_features, verbose=0, iterations=200, depth=6, learning_rate=0.1, random_strength=0.01, l2_leaf_reg=2),
+            # 'XGB Regressor': XGBRegressor(...),
+            # 'Light GBM Regressor': LGBMRegressor(...),
+            # 'Random Forest': RandomForestRegressor(...),
+            # 'Gradient Boosting': GradientBoostingRegressor(...)
         }
         results = []
         for name, model in models.items():
@@ -127,7 +127,7 @@ if uploaded_file:
             else:
                 model.fit(X_train, y_train)
                 joblib.dump(model, f"saved_models/{name.lower()}.joblib")
-                y_pred = model.predict(X_test)            
+                y_pred = model.predict(X_test)
             results.append({
                 'Model': name,
                 'MSE': mean_squared_error(y_test, y_pred),
@@ -215,4 +215,3 @@ if st.session_state.forecast_df is not None:
     if st.button("🔄 Reset Forecast View"):
         st.session_state.forecast_df = None
         st.session_state.trained = False
-
