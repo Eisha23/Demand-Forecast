@@ -54,13 +54,18 @@ if uploaded_file:
 
     Q1, Q3 = data['Units'].quantile([0.25, 0.75])
     IQR = Q3 - Q1
-    lower_bound, upper_bound = Q1 - 1.5 * IQR, Q3 + 1.5 * IQR
+    lower_bound = Q1 - 1.5 * IQR
+    upper_bound = Q3 + 1.5 * IQR
+
+    # Detect outliers
     outliers = data[(data['Units'] < lower_bound) | (data['Units'] > upper_bound)]
     st.write("Number of outliers in 'Units'", len(outliers))
 
+    # Cap if checkbox is checked
     if st.checkbox("Apply Outlier Capping"):
-        q10, q90 = data['Units'].quantile(0.1), data['Units'].quantile(0.9)
-        data['Units'] = data['Units'].clip(lower=q10, upper=q90)
+        data["Units"] = data["Units"].clip(lower=lower_bound, upper=upper_bound)
+        st.success("Outliers capped using global IQR bounds.")
+
 
     le = LabelEncoder()
     data['SKU_encoded'] = le.fit_transform(data['SKU']).astype(int)
