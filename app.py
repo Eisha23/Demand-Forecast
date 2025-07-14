@@ -201,7 +201,7 @@ if st.session_state.forecast_df is not None:
     st.dataframe(st.session_state.forecast_df)
     csv = st.session_state.forecast_df.to_csv(index=False).encode('utf-8')
     st.download_button("📥 Download Forecast", data=csv, file_name="forecast.csv")
-if st.button("🔄 Reset Forecast View"):
-    st.session_state.forecast_df = None
-    st.session_state.trained = False
+    if st.button("🔄 Reset Forecast View"):
+        st.session_state.forecast_df = None
+        st.session_state.trained = False
 
