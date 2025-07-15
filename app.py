@@ -169,9 +169,7 @@ if uploaded_file:
 
 
             for _ in range(forecast_weeks):
-                forecasted_weeks = 4 + _  # 4 lags + current prediction count
-                sku_mean = (sku_mean * (forecasted_weeks - 1) + pred) / forecasted_weeks
-                units_to_sku_mean = pred / (sku_mean + 1e-5)
+                
                 input_row = {
                     'SKU_encoded': sku,
                     'Week': last_row['Week'] + 1,
@@ -181,7 +179,7 @@ if uploaded_file:
                     'rolling_mean_4': np.mean(lags),
                     'sku_mean': sku_mean,
                     'cumulative_units': cumulative_units,
-                    'units_to_sku_mean': units_to_sku_mean
+                    'units_to_sku_mean': last_row['Units'] / (sku_mean + 1e-5)
                 }
 
 
@@ -194,6 +192,13 @@ if uploaded_file:
                 pred = model.predict(X_final)[0]
                 pred = max(0, pred)
                 forecasts.append(round(pred, 2))
+
+                forecasted_weeks = 4 + _  # 4 lags + current prediction count
+                sku_mean = (sku_mean * (forecasted_weeks - 1) + pred) / forecasted_weeks
+                
+
+
+                
                 lags = [pred] + lags[:3]
                 last_row['Units'] = pred
                 last_row['Week'] += 1
