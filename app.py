@@ -123,6 +123,8 @@ if uploaded_file:
             model.fit(X_train, y_train)
             joblib.dump(model, f"saved_models/{name.lower()}.joblib")
             y_pred = model.predict(X_test)
+            st.write("Sample predictions:", y_pred[:10])
+
             results.append({
                 'Model': name,
                 'MSE': mean_squared_error(y_test, y_pred),
