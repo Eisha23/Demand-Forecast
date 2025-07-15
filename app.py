@@ -165,6 +165,8 @@ if uploaded_file:
             lags = [last_row[f'lag_{i}'] for i in range(1, 5)]
             cumulative_units = train[train['SKU'] == sku_original]['Units'].sum()
             forecasts = []
+            sku_mean = sku_mean_map.get(sku_original, 0)
+
 
             for _ in range(forecast_weeks):
                 forecasted_weeks = 4 + _  # 4 lags + current prediction count
