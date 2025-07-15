@@ -65,8 +65,7 @@ if uploaded_file:
     if st.checkbox("Apply Outlier Capping"):
         data["Units"] = data["Units"].clip(lower=lower_bound, upper=upper_bound)
         st.success("Outliers capped using global IQR bounds.")
-
-
+        
     le = LabelEncoder()
     data['SKU_encoded'] = le.fit_transform(data['SKU']).astype(int)
     os.makedirs("saved_data", exist_ok=True)
@@ -106,9 +105,7 @@ if uploaded_file:
 
     X_train, y_train = train[features], train[target]
     X_test, y_test = test[features], test[target]
-
-  
-
+    
     if st.button("Train Models and Forecast"):
         models = {
             'CatBoostRegressor': CatBoostRegressor(verbose=0, iterations=200, depth=6, learning_rate=0.1, random_strength=0.01, l2_leaf_reg=2),
@@ -165,8 +162,6 @@ if uploaded_file:
             cumulative_units = train[train['SKU'] == sku_original]['Units'].sum()
             forecasts = []
             sku_mean = sku_mean_map.get(sku_original, 0)
-
-
             for _ in range(forecast_weeks):
                 
                 input_row = {
@@ -180,8 +175,6 @@ if uploaded_file:
                     'cumulative_units': cumulative_units,
                     'units_to_sku_mean': last_row['Units'] / (sku_mean + 1e-5)
                 }
-
-
                 input_df = pd.DataFrame([input_row])
                 scaled_numeric = scaler.transform(input_df[features_to_scale])
                 scaled_df = pd.DataFrame(scaled_numeric, columns=features_to_scale)
@@ -194,10 +187,6 @@ if uploaded_file:
 
                 forecasted_weeks = 4 + _  # 4 lags + current prediction count
                 sku_mean = (sku_mean * (forecasted_weeks - 1) + pred) / forecasted_weeks
-                
-
-
-                
                 lags = [pred] + lags[:3]
                 last_row['Units'] = pred
                 last_row['Week'] += 1
