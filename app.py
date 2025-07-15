@@ -29,7 +29,7 @@ if "forecast_df" not in st.session_state:
 # --- Features ---
 all_features = ['Week', 'SKU_encoded', 'lag_1', 'lag_2', 'lag_3', 'lag_4',
                 'rolling_mean_2', 'rolling_mean_3', 'rolling_mean_4',
-                'sku_mean', 'cumulative_units', 'units_to_sku_mean']
+                'sku_mean']# 'cumulative_units', 'units_to_sku_mean']
 
 uploaded_file = st.file_uploader("Upload CSV", type="csv")
 if uploaded_file:
@@ -78,7 +78,7 @@ if uploaded_file:
     data['rolling_mean_4'] = data.groupby('SKU')['Units'].shift(1).rolling(4).mean().reset_index(0, drop=True)
     data.fillna(0, inplace=True)
     data = data[data['Week'] >= (start_week + 4)]
-
+    
     all_weeks = sorted(data['Week'].unique())
     split_point = int(len(all_weeks) * 0.8)
     train_weeks = all_weeks[:split_point]
@@ -87,9 +87,9 @@ if uploaded_file:
 
     sku_cumsum = train.groupby('SKU')['Units'].sum().to_dict()
     sku_mean_map = train.groupby('SKU')['Units'].mean().to_dict()
-    data['cumulative_units'] = data['SKU'].map(sku_cumsum)
+    #data['cumulative_units'] = data['SKU'].map(sku_cumsum)
     data['sku_mean'] = data['SKU'].map(sku_mean_map)
-    data['units_to_sku_mean'] = data['lag_1'] / (data['sku_mean'] + 1e-5)
+    #data['units_to_sku_mean'] = data['lag_1'] / (data['sku_mean'] + 1e-5)
 
     features = all_features
     target = 'Units'
@@ -160,7 +160,7 @@ if uploaded_file:
 
             last_row = sku_data[sku_data['Week'] == sku_data['Week'].max()].iloc[0]
             lags = [last_row[f'lag_{i}'] for i in range(1, 5)]
-            cumulative_units = train[train['SKU'] == sku_original]['Units'].sum()
+           # cumulative_units = train[train['SKU'] == sku_original]['Units'].sum()
             forecasts = []
             sku_mean = sku_mean_map.get(sku_original, 0)
             for _ in range(forecast_weeks):
@@ -173,8 +173,8 @@ if uploaded_file:
                     'rolling_mean_3': np.mean(lags[:3]),
                     'rolling_mean_4': np.mean(lags),
                     'sku_mean': sku_mean,
-                    'cumulative_units': cumulative_units,
-                    'units_to_sku_mean': last_row['Units'] / (sku_mean + 1e-5)
+                   # 'cumulative_units': cumulative_units,
+                   # 'units_to_sku_mean': last_row['Units'] / (sku_mean + 1e-5)
                 }
                 input_df = pd.DataFrame([input_row])
                 scaled_numeric = scaler.transform(input_df[features_to_scale])
@@ -191,7 +191,7 @@ if uploaded_file:
                 lags = [pred] + lags[:3]
                 last_row['Units'] = pred
                 last_row['Week'] += 1
-                cumulative_units += pred
+               # cumulative_units += pred
 
             forecast_dict[sku] = forecasts
 
