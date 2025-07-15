@@ -89,7 +89,7 @@ if uploaded_file:
     sku_mean_map = train.groupby('SKU')['Units'].mean().to_dict()
     data['cumulative_units'] = data['SKU'].map(sku_cumsum)
     data['sku_mean'] = data['SKU'].map(sku_mean_map)
-    data['units_to_sku_mean'] = data['Units'] / (data['sku_mean'] + 1e-5)
+    data['units_to_sku_mean'] = data['lag_1'] / (data['sku_mean'] + 1e-5)
 
     features = all_features
     target = 'Units'
@@ -101,7 +101,8 @@ if uploaded_file:
     scaler = RobustScaler()
     scaler.fit(train[features_to_scale])
     joblib.dump(scaler, 'saved_models/robust_scaler.save')
-    data[features_to_scale] = scaler.transform(data[features_to_scale])
+    train[features_to_scale] = scaler.transform(train[features_to_scale])
+    test[features_to_scale] = scaler.transform(test[features_to_scale])
 
     X_train, y_train = train[features], train[target]
     X_test, y_test = test[features], test[target]
@@ -157,7 +158,7 @@ if uploaded_file:
             if sku_original is None:
                 continue
 
-            last_row = sku_data.iloc[-1].copy()
+            last_row = sku_data[sku_data['Week'] == sku_data['Week'].max()].iloc[0]
             lags = [last_row[f'lag_{i}'] for i in range(1, 5)]
             cumulative_units = train[train['SKU'] == sku_original]['Units'].sum()
             forecasts = []
