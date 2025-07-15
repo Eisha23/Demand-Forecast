@@ -14,7 +14,7 @@ from lightgbm import LGBMRegressor
 from catboost import CatBoostRegressor, Pool
 import logging
 
-# --- Setup ---
+# --- Setup --
 os.makedirs("saved_models", exist_ok=True)
 
 st.set_page_config(page_title="Demand Forecast", layout="wide")
