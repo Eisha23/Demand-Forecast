@@ -51,6 +51,9 @@ if uploaded_file:
     data = data.set_index(['SKU', 'Week']).reindex(full_index).reset_index()
     data['Units'] = data['Units'].apply(lambda x: max(x, 0))
     data.fillna(0, inplace=True)
+    data.to_csv("saved_data/preprocessed.csv", index=False)
+    st.download_button("📥 Download Preprocessed CSV", data=data.to_csv(index=False).encode('utf-8'), file_name="preprocessed_data.csv")
+
 
     Q1, Q3 = data['Units'].quantile([0.25, 0.75])
     IQR = Q3 - Q1
