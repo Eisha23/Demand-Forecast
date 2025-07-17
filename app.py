@@ -26,10 +26,9 @@ if "trained" not in st.session_state:
 if "forecast_df" not in st.session_state:
     st.session_state.forecast_df = None
 
-# --- Features ---
+#features
 all_features = ['Week', 'SKU_encoded', 'lag_1', 'lag_2', 'lag_3', 'lag_4',
-                'rolling_mean_2', 'rolling_mean_3', 'rolling_mean_4',
-                'sku_mean']# 'cumulative_units', 'units_to_sku_mean']
+                'rolling_mean_2', 'rolling_mean_3', 'rolling_mean_4']
 
 uploaded_file = st.file_uploader("Upload CSV", type="csv")
 if uploaded_file:
@@ -37,6 +36,7 @@ if uploaded_file:
     st.success("CSV loaded successfully.")
     st.write("Preprocessing file...")
 
+    #detecting week range
     st.subheader("Week Range")
     range_type = st.radio("Select Range", ['Auto-detect', 'Manual'])
     if range_type == 'Auto-detect':
@@ -44,37 +44,60 @@ if uploaded_file:
     else:
         start_week = st.number_input("Start Week", min_value=1, value=1)
         end_week = st.number_input("End Week", min_value=start_week, value=start_week + 5)
-
+    
+    # fill missing weeks with nan units
     full_weeks = list(range(start_week, end_week + 1))
     data['SKU'] = data['SKU'].astype(str)
     full_index = pd.MultiIndex.from_product([data['SKU'].unique(), full_weeks], names=['SKU', 'Week'])
     data = data.set_index(['SKU', 'Week']).reindex(full_index).reset_index()
+   
+    # Convert negative units and nan to 0
+    data.fillna(0, inplace=True) 
     data['Units'] = data['Units'].apply(lambda x: max(x, 0))
-    data.fillna(0, inplace=True)
     data = data.sort_values(by=['SKU', 'Week'])  # Sort by SKU, then Week
 
-    data.to_csv("saved_data/preprocessed.csv", index=False)
+    data.to_csv("saved_data/preprocessed_data.csv", index=False)
     st.download_button("📥 Download Preprocessed CSV", data=data.to_csv(index=False).encode('utf-8'), file_name="preprocessed_data.csv")
 
-    Q1, Q3 = data['Units'].quantile([0.25, 0.75])
-    IQR = Q3 - Q1
-    lower_bound = Q1 - 1.5 * IQR
-    upper_bound = Q3 + 1.5 * IQR
-
-    # Detect outliers
-    outliers = data[(data['Units'] < lower_bound) | (data['Units'] > upper_bound)]
-    st.write("Number of outliers in 'Units'", len(outliers))
+    # capping and detecting outliers
+    sku_outlier_info = []
+    for sku in data['SKU'].unique():
+        sku_mask = data['SKU'] == sku
+        sku_data = data[data['SKU'] == sku] 
+        Q1 = sku_data['Units'].quantile(0.25)
+        Q3 = sku_data['Units'].quantile(0.75)
+        IQR = Q3 - Q1
+        lower = max(Q1 - 1.5 * IQR, 0)
+        upper = Q3 + 1.5 * IQR
+        outliers = sku_data[(sku_data['Units'] < lower) | (sku_data['Units'] > upper)]
+        sku_outlier_info.append({
+            "SKU": sku,
+            "Outlier_Count": len(outliers),
+            "Outlier_Weeks": ",".join(str(w) for w in outliers['Week'].tolist()),
+            "Outlier_Values": ",".join(str(v) for v in outliers['Units'].tolist()),
+            "Lower_Cap": round(lower, 2),
+            "Upper_Cap": round(upper, 2)
+        })
+        data.loc[sku_mask, 'Units'] = sku_data['Units'].clip(lower=lower, upper=upper)
+    # Convert to DataFrame
+    outlier_df = pd.DataFrame(sku_outlier_info)
+    # Save to CSV
+    outlier_df.to_csv("outlier_summary.csv", index=False) 
+    #st.write("Number of outliers in 'Units'", len(outliers))
+    data.to_csv('outliers_preprocessed.csv', index=False)
 
     # Cap if checkbox is checked
     if st.checkbox("Apply Outlier Capping"):
         data["Units"] = data["Units"].clip(lower=lower_bound, upper=upper_bound)
         st.success("Outliers capped using global IQR bounds.")
         
+    # encoding sku, creating sku encoded
     le = LabelEncoder()
     data['SKU_encoded'] = le.fit_transform(data['SKU']).astype(int)
     os.makedirs("saved_data", exist_ok=True)
     data.to_csv("saved_data/preprocessed.csv", index=False)
 
+    # feature engineering, creating lags and rolling mean
     for i in range(1, 5):
         data[f'lag_{i}'] = data.groupby('SKU')['Units'].shift(i)
     data['rolling_mean_2'] = data.groupby('SKU')['Units'].shift(1).rolling(2).mean().reset_index(0, drop=True)
@@ -82,31 +105,26 @@ if uploaded_file:
     data['rolling_mean_4'] = data.groupby('SKU')['Units'].shift(1).rolling(4).mean().reset_index(0, drop=True)
     data.fillna(0, inplace=True)
     data = data[data['Week'] >= (start_week + 4)]
+       
     
+    features = ['Week', 'SKU_encoded', 'lag_1', 'lag_2', 'lag_3','lag_4',
+            'rolling_mean_2', 'rolling_mean_3', 'rolling_mean_4']
+    target = 'Units'
+    features_to_scale = [f for f in features if f != 'SKU_encoded']
+    
+    # applying robust scaler
+    scaler = RobustScaler()
+    data[features_to_scale] = scaler.fit_transform(data[features_to_scale])
+    joblib.dump(scaler, 'saved_models/robust_scaler.save')
+    data.to_csv('model_ready.csv', index=False)
+    
+    # train test split
     all_weeks = sorted(data['Week'].unique())
     split_point = int(len(all_weeks) * 0.8)
     train_weeks = all_weeks[:split_point]
     test_weeks = all_weeks[split_point:]
     train = data[data['Week'].isin(train_weeks)]
-
-    sku_cumsum = train.groupby('SKU')['Units'].sum().to_dict()
-    sku_mean_map = train.groupby('SKU')['Units'].mean().to_dict()
-    #data['cumulative_units'] = data['SKU'].map(sku_cumsum)
-    data['sku_mean'] = data['SKU'].map(sku_mean_map)
-    #data['units_to_sku_mean'] = data['lag_1'] / (data['sku_mean'] + 1e-5)
-
-    features = all_features
-    target = 'Units'
-    features_to_scale = [f for f in features if f != 'SKU_encoded']
-
-    train = data[data['Week'].isin(train_weeks)]
     test = data[data['Week'].isin(test_weeks)]
-
-    scaler = RobustScaler()
-    scaler.fit(train[features_to_scale])
-    joblib.dump(scaler, 'saved_models/robust_scaler.save')
-    train[features_to_scale] = scaler.transform(train[features_to_scale])
-    test[features_to_scale] = scaler.transform(test[features_to_scale])
 
     X_train, y_train = train[features], train[target]
     X_test, y_test = test[features], test[target]
@@ -122,7 +140,10 @@ if uploaded_file:
         results = []
         for name, model in models.items():
             st.write("Running", name)
-            model.fit(X_train, y_train)
+            if name == 'CatBoostRegressor':
+                model.fit(X_train, y_train, cat_features=['SKU_encoded'])
+            else:
+                model.fit(X_train, y_train)
             joblib.dump(model, f"saved_models/{name.lower()}.joblib")
             y_pred = model.predict(X_test)
 
@@ -148,10 +169,8 @@ if uploaded_file:
 
         forecast_weeks = 6
         data = data.sort_values(['SKU', 'Week'])
-        data['SKU_encoded'] = data['SKU_encoded'].astype(int)
         inverse_map = data[['SKU', 'SKU_encoded']].drop_duplicates().set_index('SKU_encoded')['SKU'].to_dict()
         train = data[data['Week'].isin(train_weeks)]
-        sku_mean_map = train.groupby('SKU')['Units'].mean().to_dict()
 
         forecast_dict = {}
         for sku in data['SKU_encoded'].unique():
@@ -164,9 +183,7 @@ if uploaded_file:
 
             last_row = sku_data[sku_data['Week'] == sku_data['Week'].max()].iloc[0]
             lags = [last_row[f'lag_{i}'] for i in range(1, 5)]
-           # cumulative_units = train[train['SKU'] == sku_original]['Units'].sum()
             forecasts = []
-            sku_mean = sku_mean_map.get(sku_original, 0)
             for _ in range(forecast_weeks):
                 
                 input_row = {
@@ -176,9 +193,6 @@ if uploaded_file:
                     'rolling_mean_2': np.mean(lags[:2]),
                     'rolling_mean_3': np.mean(lags[:3]),
                     'rolling_mean_4': np.mean(lags),
-                    'sku_mean': sku_mean,
-                   # 'cumulative_units': cumulative_units,
-                   # 'units_to_sku_mean': last_row['Units'] / (sku_mean + 1e-5)
                 }
                 input_df = pd.DataFrame([input_row])
                 scaled_numeric = scaler.transform(input_df[features_to_scale])
@@ -191,7 +205,6 @@ if uploaded_file:
                 forecasts.append(round(pred, 2))
 
                 forecasted_weeks = 4 + _  # 4 lags + current prediction count
-                sku_mean = (sku_mean * (forecasted_weeks - 1) + pred) / forecasted_weeks
                 lags = [pred] + lags[:3]
                 last_row['Units'] = pred
                 last_row['Week'] += 1
