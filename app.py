@@ -15,7 +15,7 @@ from catboost import CatBoostRegressor, Pool
 import logging
 
 # --- Setup --
-os.makedirs("saved_data", exist_ok=True)
+
 
 st.set_page_config(page_title="Demand Forecast", layout="wide")
 st.title("📦 Demand Forecasting App")
@@ -84,18 +84,17 @@ if uploaded_file:
     # Convert to DataFrame
     outlier_df = pd.DataFrame(sku_outlier_info)
     # Save to CSV
-    outlier_df.to_csv("outlier_summary.csv", index=False) 
+    outlier_df.to_csv("saved_data/outlier_summary.csv", index=False) 
     st.download_button("📥 Save Outlier Summary", data=data.to_csv(index=False).encode('utf-8'), file_name="outliers_summary.csv")
 
     #st.write("Number of outliers in 'Units'", len(outliers))
-    data.to_csv('outliers_preprocessed.csv', index=False)
+    data.to_csv('saved_data/outliers_preprocessed.csv', index=False)
     st.download_button("📥 Download Outliers Preprocessed", data=data.to_csv(index=False).encode('utf-8'), file_name="outliers_preprocessed.csv")
 
     # encoding sku, creating sku encoded
     st.write("Encoding SKU...")
     le = LabelEncoder()
     data['SKU_encoded'] = le.fit_transform(data['SKU']).astype(int)
-    os.makedirs("saved_data", exist_ok=True)
 
     # feature engineering, creating lags and rolling mean
     st.write("Feature Engineering...")
@@ -119,7 +118,7 @@ if uploaded_file:
     scaler = RobustScaler()
     data[features_to_scale] = scaler.fit_transform(data[features_to_scale])
     joblib.dump(scaler, 'saved_models/robust_scaler.save')
-    data.to_csv('model_ready.csv', index=False)
+    data.to_csv('saved_data/model_ready.csv', index=False)
     st.download_button("📥 Download Model Ready Data", data=data.to_csv(index=False).encode('utf-8'), file_name="model_ready.csv")
 
     
