@@ -15,7 +15,7 @@ from catboost import CatBoostRegressor, Pool
 import logging
 
 # --- Setup --
-os.makedirs("saved_models", exist_ok=True)
+os.makedirs("saved_data", exist_ok=True)
 
 st.set_page_config(page_title="Demand Forecast", layout="wide")
 st.title("📦 Demand Forecasting App")
