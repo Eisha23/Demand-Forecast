@@ -46,6 +46,7 @@ if uploaded_file:
         end_week = st.number_input("End Week", min_value=start_week, value=start_week + 5)
     
     # fill missing weeks with nan units
+    st.write("Filling missing week...")
     full_weeks = list(range(start_week, end_week + 1))
     data['SKU'] = data['SKU'].astype(str)
     full_index = pd.MultiIndex.from_product([data['SKU'].unique(), full_weeks], names=['SKU', 'Week'])
@@ -60,6 +61,7 @@ if uploaded_file:
     st.download_button("📥 Download Preprocessed CSV", data=data.to_csv(index=False).encode('utf-8'), file_name="preprocessed_data.csv")
 
     # capping and detecting outliers
+    st.write("Capping outliers...")
     sku_outlier_info = []
     for sku in data['SKU'].unique():
         sku_mask = data['SKU'] == sku
@@ -83,21 +85,20 @@ if uploaded_file:
     outlier_df = pd.DataFrame(sku_outlier_info)
     # Save to CSV
     outlier_df.to_csv("outlier_summary.csv", index=False) 
+    st.download_button("📥 Save Outlier Summary", data=data.to_csv(index=False).encode('utf-8'), file_name="outliers_summary.csv")
+
     #st.write("Number of outliers in 'Units'", len(outliers))
     data.to_csv('outliers_preprocessed.csv', index=False)
+    st.download_button("📥 Download Outliers Preprocessed", data=data.to_csv(index=False).encode('utf-8'), file_name="outliers_preprocessed.csv")
 
-    # Cap if checkbox is checked
-    if st.checkbox("Apply Outlier Capping"):
-        data["Units"] = data["Units"].clip(lower=lower_bound, upper=upper_bound)
-        st.success("Outliers capped using global IQR bounds.")
-        
     # encoding sku, creating sku encoded
+    st.write("Encoding SKU...")
     le = LabelEncoder()
     data['SKU_encoded'] = le.fit_transform(data['SKU']).astype(int)
     os.makedirs("saved_data", exist_ok=True)
-    data.to_csv("saved_data/preprocessed.csv", index=False)
 
     # feature engineering, creating lags and rolling mean
+    st.write("Feature Engineering...")
     for i in range(1, 5):
         data[f'lag_{i}'] = data.groupby('SKU')['Units'].shift(i)
     data['rolling_mean_2'] = data.groupby('SKU')['Units'].shift(1).rolling(2).mean().reset_index(0, drop=True)
@@ -105,18 +106,22 @@ if uploaded_file:
     data['rolling_mean_4'] = data.groupby('SKU')['Units'].shift(1).rolling(4).mean().reset_index(0, drop=True)
     data.fillna(0, inplace=True)
     data = data[data['Week'] >= (start_week + 4)]
+    data.to_csv("saved_data/features.csv", index=False)
+    st.download_button("📥 Download Features", data=data.to_csv(index=False).encode('utf-8'), file_name="features.csv")
        
-    
     features = ['Week', 'SKU_encoded', 'lag_1', 'lag_2', 'lag_3','lag_4',
             'rolling_mean_2', 'rolling_mean_3', 'rolling_mean_4']
     target = 'Units'
     features_to_scale = [f for f in features if f != 'SKU_encoded']
     
     # applying robust scaler
+    st.write("Scaling the data...")
     scaler = RobustScaler()
     data[features_to_scale] = scaler.fit_transform(data[features_to_scale])
     joblib.dump(scaler, 'saved_models/robust_scaler.save')
     data.to_csv('model_ready.csv', index=False)
+    st.download_button("📥 Download Model Ready Data", data=data.to_csv(index=False).encode('utf-8'), file_name="model_ready.csv")
+
     
     # train test split
     all_weeks = sorted(data['Week'].unique())
@@ -168,11 +173,10 @@ if uploaded_file:
         st.write("Forecasting using best model: ", best_model_name)
 
         forecast_weeks = 6
+        forecast_dict = {}
         data = data.sort_values(['SKU', 'Week'])
         inverse_map = data[['SKU', 'SKU_encoded']].drop_duplicates().set_index('SKU_encoded')['SKU'].to_dict()
-        train = data[data['Week'].isin(train_weeks)]
-
-        forecast_dict = {}
+    
         for sku in data['SKU_encoded'].unique():
             sku_data = data[data['SKU_encoded'] == sku].sort_values('Week')
             if sku_data.empty:
@@ -184,8 +188,7 @@ if uploaded_file:
             last_row = sku_data[sku_data['Week'] == sku_data['Week'].max()].iloc[0]
             lags = [last_row[f'lag_{i}'] for i in range(1, 5)]
             forecasts = []
-            for _ in range(forecast_weeks):
-                
+            for _ in range(forecast_weeks):    
                 input_row = {
                     'SKU_encoded': sku,
                     'Week': last_row['Week'] + 1,
@@ -204,11 +207,9 @@ if uploaded_file:
                 pred = max(0, pred)
                 forecasts.append(round(pred, 2))
 
-                forecasted_weeks = 4 + _  # 4 lags + current prediction count
                 lags = [pred] + lags[:3]
                 last_row['Units'] = pred
                 last_row['Week'] += 1
-               # cumulative_units += pred
 
             forecast_dict[sku] = forecasts
 
