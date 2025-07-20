@@ -28,6 +28,7 @@ for key in ['trained', 'forecast_df', 'preprocessed_df', 'outliers_df', 'outlier
     if key not in st.session_state:
         st.session_state[key] = None if key != 'trained' else False
 
+os.makedirs("saved_models", exist_ok=True)
 uploaded_file = st.file_uploader("Upload CSV", type="csv")
 if uploaded_file:
     data = pd.read_csv(uploaded_file)[['SKU', 'Week', 'Units']]
