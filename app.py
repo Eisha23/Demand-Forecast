@@ -17,12 +17,6 @@ from catboost import CatBoostRegressor
 st.set_page_config(page_title="Demand Forecast", layout="wide")
 st.title("📦 Demand Forecasting App")
 
-# Session State
-if "trained" not in st.session_state:
-    st.session_state.trained = False
-if "forecast_df" not in st.session_state:
-    st.session_state.forecast_df = None
-
 # Session State Initialization
 for key in ['trained', 'forecast_df', 'preprocessed_df', 'outliers_df', 'outlier_summary', 'features_df', 'model_ready_df']:
     if key not in st.session_state:
@@ -45,7 +39,7 @@ if uploaded_file:
         end_week = st.number_input("End Week", min_value=start_week, value=start_week + 5)
     
     # Fill missing weeks with nan units
-    st.write("Filling missing weeks...")
+    st.write("Filling missing week...")
     full_weeks = list(range(start_week, end_week + 1))
     data['SKU'] = data['SKU'].astype(str)
     full_index = pd.MultiIndex.from_product([data['SKU'].unique(), full_weeks], names=['SKU', 'Week'])
@@ -119,13 +113,13 @@ if uploaded_file:
     X_train, y_train = train[features], train[target]
     X_test, y_test = test[features], test[target]
     
-    st.write("Training models...", name)
+    
     models = {
-        'CatBoostRegressor': CatBoostRegressor(verbose=0, iterations=200, depth=6, learning_rate=0.1, random_strength=0.01, l2_leaf_reg=2),
-        'XGB Regressor': XGBRegressor(n_estimators=500, learning_rate=0.03, max_depth=6, subsample=0.8, colsample_bytree=0.8, reg_alpha=0.1, reg_lambda=1.0, gamma=0.1, min_child_weight=3, verbosity=0, random_state=42),
-        'Light GBM Regressor': LGBMRegressor(n_estimators=400, learning_rate=0.05, max_depth=4, subsample=0.8, colsample_bytree=0.8, reg_alpha=0.1, reg_lambda=1.0, random_state=42, verbosity=-1),
-        # 'Random Forest': RandomForestRegressor(n_estimators=300, max_depth=8, min_samples_split=10, min_samples_leaf=5, max_features=0.6, random_state=42, n_jobs=-1),
-        'Gradient Boosting': GradientBoostingRegressor(learning_rate=0.1, random_state=42),
+            'CatBoostRegressor': CatBoostRegressor(verbose=0, iterations=200, depth=6, learning_rate=0.1, random_strength=0.01, l2_leaf_reg=2),
+            'XGB Regressor': XGBRegressor(n_estimators=500, learning_rate=0.03, max_depth=6, subsample=0.8, colsample_bytree=0.8, reg_alpha=0.1, reg_lambda=1.0, gamma=0.1, min_child_weight=3, verbosity=0, random_state=42),
+            'Light GBM Regressor': LGBMRegressor(n_estimators=400, learning_rate=0.05, max_depth=4, subsample=0.8, colsample_bytree=0.8, reg_alpha=0.1, reg_lambda=1.0, random_state=42, verbosity=-1),
+           # 'Random Forest': RandomForestRegressor(n_estimators=300, max_depth=8, min_samples_split=10, min_samples_leaf=5, max_features=0.6, random_state=42, n_jobs=-1),
+            'Gradient Boosting': GradientBoostingRegressor(learning_rate=0.1, random_state=42),
     }
     results = []
     for name, model in models.items():
@@ -208,8 +202,8 @@ if st.session_state.forecast_df is not None:
     csv = st.session_state.forecast_df.to_csv(index=False).encode('utf-8')
     st.download_button("📥 Download Forecast", data=csv, file_name="forecast.csv")
     if st.button("🔄 Reset Forecast View"):
-        st.session_state.forecast_df = None
-        st.session_state.trained = False
+        st.session_state.clear()
+        st.rerun() 
 
 # Sidebar Download Area
 st.sidebar.subheader("📥 Download Files")
