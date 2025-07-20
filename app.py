@@ -119,87 +119,87 @@ if uploaded_file:
     X_train, y_train = train[features], train[target]
     X_test, y_test = test[features], test[target]
     
-    if st.button("Train Models and Forecast"):
-        models = {
+    
+    models = {
             'CatBoostRegressor': CatBoostRegressor(verbose=0, iterations=200, depth=6, learning_rate=0.1, random_strength=0.01, l2_leaf_reg=2),
             'XGB Regressor': XGBRegressor(n_estimators=500, learning_rate=0.03, max_depth=6, subsample=0.8, colsample_bytree=0.8, reg_alpha=0.1, reg_lambda=1.0, gamma=0.1, min_child_weight=3, verbosity=0, random_state=42),
             'Light GBM Regressor': LGBMRegressor(n_estimators=400, learning_rate=0.05, max_depth=4, subsample=0.8, colsample_bytree=0.8, reg_alpha=0.1, reg_lambda=1.0, random_state=42, verbosity=-1),
            # 'Random Forest': RandomForestRegressor(n_estimators=300, max_depth=8, min_samples_split=10, min_samples_leaf=5, max_features=0.6, random_state=42, n_jobs=-1),
             'Gradient Boosting': GradientBoostingRegressor(learning_rate=0.1, random_state=42),
-        }
-        results = []
-        for name, model in models.items():
-            st.write("Running", name)
-            if name == 'CatBoostRegressor':
-                model.fit(X_train, y_train, cat_features=['SKU_encoded'])
-            else:
-                model.fit(X_train, y_train)
-            joblib.dump(model, f"saved_models/{name.lower()}.joblib")
-            y_pred = model.predict(X_test)
+    }
+    results = []
+    for name, model in models.items():
+        st.write("Running", name)
+        if name == 'CatBoostRegressor':
+            model.fit(X_train, y_train, cat_features=['SKU_encoded'])
+        else:
+            model.fit(X_train, y_train)
+        joblib.dump(model, f"saved_models/{name.lower()}.joblib")
+        y_pred = model.predict(X_test)
 
-            results.append({
-                'Model': name,
-                'MSE': mean_squared_error(y_test, y_pred),
-                'RMSE': np.sqrt(mean_squared_error(y_test, y_pred)),
-                'MAE': mean_absolute_error(y_test, y_pred),
-                'R² Score': r2_score(y_test, y_pred)
-            })
+        results.append({
+            'Model': name,
+            'MSE': mean_squared_error(y_test, y_pred),
+            'RMSE': np.sqrt(mean_squared_error(y_test, y_pred)),
+            'MAE': mean_absolute_error(y_test, y_pred),
+            'R² Score': r2_score(y_test, y_pred)
+        })
 
-        results_df = pd.DataFrame(results).sort_values(by="RMSE").reset_index(drop=True)
-        st.dataframe(results_df)
+    results_df = pd.DataFrame(results).sort_values(by="RMSE").reset_index(drop=True)
+    st.dataframe(results_df)
 
-        best_model_name = results_df.loc[0, 'Model']
-        joblib.dump(best_model_name, 'saved_models/best_model.txt')
-        model = joblib.load(f"saved_models/{best_model_name.lower()}.joblib")
-        scaler = joblib.load("saved_models/robust_scaler.save")
+    best_model_name = results_df.loc[0, 'Model']
+    joblib.dump(best_model_name, 'saved_models/best_model.txt')
+    model = joblib.load(f"saved_models/{best_model_name.lower()}.joblib")
+    scaler = joblib.load("saved_models/robust_scaler.save")
 
-        st.write("Forecasting using best model: ", best_model_name)
-        forecast_weeks = 6
-        forecast_dict = {}
-        data = data.sort_values(['SKU', 'Week'])
-        inverse_map = data[['SKU', 'SKU_encoded']].drop_duplicates().set_index('SKU_encoded')['SKU'].to_dict()
+    st.write("Forecasting using best model: ", best_model_name)
+    forecast_weeks = 6
+    forecast_dict = {}
+    data = data.sort_values(['SKU', 'Week'])
+    inverse_map = data[['SKU', 'SKU_encoded']].drop_duplicates().set_index('SKU_encoded')['SKU'].to_dict()
     
-        for sku in data['SKU_encoded'].unique():
-            sku_data = data[data['SKU_encoded'] == sku].sort_values('Week')
-            if sku_data.empty:
-                continue
-            sku_original = inverse_map.get(sku)
-            if sku_original is None:
-                continue
+    for sku in data['SKU_encoded'].unique():
+        sku_data = data[data['SKU_encoded'] == sku].sort_values('Week')
+        if sku_data.empty:
+            continue
+        sku_original = inverse_map.get(sku)
+        if sku_original is None:
+            continue
 
-            last_row = sku_data[sku_data['Week'] == sku_data['Week'].max()].iloc[0]
-            lags = [last_row[f'lag_{i}'] for i in range(1, 5)]
-            forecasts = []
-            for _ in range(forecast_weeks):    
-                input_row = {
-                    'SKU_encoded': sku,
-                    'Week': last_row['Week'] + 1,
-                    'lag_1': lags[0], 'lag_2': lags[1], 'lag_3': lags[2], 'lag_4': lags[3],
-                    'rolling_mean_2': np.mean(lags[:2]),
-                    'rolling_mean_3': np.mean(lags[:3]),
-                    'rolling_mean_4': np.mean(lags),
-                }
-                input_df = pd.DataFrame([input_row])
-                scaled_numeric = scaler.transform(input_df[features_to_scale])
-                scaled_df = pd.DataFrame(scaled_numeric, columns=features_to_scale)
-                scaled_df.insert(0, 'SKU_encoded', sku)
-                X_final = scaled_df[features]
+        last_row = sku_data[sku_data['Week'] == sku_data['Week'].max()].iloc[0]
+        lags = [last_row[f'lag_{i}'] for i in range(1, 5)]
+        forecasts = []
+        for _ in range(forecast_weeks):    
+            input_row = {
+                'SKU_encoded': sku,
+                'Week': last_row['Week'] + 1,
+                'lag_1': lags[0], 'lag_2': lags[1], 'lag_3': lags[2], 'lag_4': lags[3],
+                'rolling_mean_2': np.mean(lags[:2]),
+                'rolling_mean_3': np.mean(lags[:3]),
+                'rolling_mean_4': np.mean(lags),
+            }
+            input_df = pd.DataFrame([input_row])
+            scaled_numeric = scaler.transform(input_df[features_to_scale])
+            scaled_df = pd.DataFrame(scaled_numeric, columns=features_to_scale)
+            scaled_df.insert(0, 'SKU_encoded', sku)
+            X_final = scaled_df[features]
 
-                pred = model.predict(X_final)[0]
-                pred = max(0, pred)
-                forecasts.append(round(pred, 2))
+            pred = model.predict(X_final)[0]
+            pred = max(0, pred)
+            forecasts.append(round(pred, 2))
 
-                lags = [pred] + lags[:3]
-                last_row['Units'] = pred
-                last_row['Week'] += 1
+            lags = [pred] + lags[:3]
+            last_row['Units'] = pred
+            last_row['Week'] += 1
 
-            forecast_dict[sku] = forecasts
+        forecast_dict[sku] = forecasts
 
-        forecast_df = pd.DataFrame.from_dict(forecast_dict, orient='index')
-        forecast_df.columns = [f"Week_{i+1}" for i in range(forecast_weeks)]
-        forecast_df['SKU'] = forecast_df.index.map(inverse_map)
-        forecast_df = forecast_df[['SKU'] + [f"Week_{i+1}" for i in range(forecast_weeks)]]
-        st.session_state.forecast_df = forecast_df
+    forecast_df = pd.DataFrame.from_dict(forecast_dict, orient='index')
+    forecast_df.columns = [f"Week_{i+1}" for i in range(forecast_weeks)]
+    forecast_df['SKU'] = forecast_df.index.map(inverse_map)
+    forecast_df = forecast_df[['SKU'] + [f"Week_{i+1}" for i in range(forecast_weeks)]]
+    st.session_state.forecast_df = forecast_df
 
 #  Display forecast
 if st.session_state.forecast_df is not None:
