@@ -11,24 +11,22 @@ from sklearn.metrics import mean_squared_error, mean_absolute_error, r2_score
 from sklearn.ensemble import RandomForestRegressor, GradientBoostingRegressor
 from xgboost import XGBRegressor
 from lightgbm import LGBMRegressor
-from catboost import CatBoostRegressor, Pool
-import logging
+from catboost import CatBoostRegressor
 
-# --- Setup --
-
-
+# Setup
 st.set_page_config(page_title="Demand Forecast", layout="wide")
 st.title("📦 Demand Forecasting App")
 
-# --- Session State ---
+# Session State
 if "trained" not in st.session_state:
     st.session_state.trained = False
 if "forecast_df" not in st.session_state:
     st.session_state.forecast_df = None
 
-#features
-all_features = ['Week', 'SKU_encoded', 'lag_1', 'lag_2', 'lag_3', 'lag_4',
-                'rolling_mean_2', 'rolling_mean_3', 'rolling_mean_4']
+# Session State Initialization
+for key in ['trained', 'forecast_df', 'preprocessed_df', 'outliers_df', 'outlier_summary', 'features_df', 'model_ready_df']:
+    if key not in st.session_state:
+        st.session_state[key] = None if key != 'trained' else False
 
 uploaded_file = st.file_uploader("Upload CSV", type="csv")
 if uploaded_file:
@@ -36,7 +34,7 @@ if uploaded_file:
     st.success("CSV loaded successfully.")
     st.write("Preprocessing file...")
 
-    #detecting week range
+    # Detecting week range
     st.subheader("Week Range")
     range_type = st.radio("Select Range", ['Auto-detect', 'Manual'])
     if range_type == 'Auto-detect':
@@ -45,22 +43,20 @@ if uploaded_file:
         start_week = st.number_input("Start Week", min_value=1, value=1)
         end_week = st.number_input("End Week", min_value=start_week, value=start_week + 5)
     
-    # fill missing weeks with nan units
+    # Fill missing weeks with nan units
     st.write("Filling missing week...")
     full_weeks = list(range(start_week, end_week + 1))
     data['SKU'] = data['SKU'].astype(str)
     full_index = pd.MultiIndex.from_product([data['SKU'].unique(), full_weeks], names=['SKU', 'Week'])
     data = data.set_index(['SKU', 'Week']).reindex(full_index).reset_index()
    
-    # Convert negative units and nan to 0
+    # Convert negative and nan units to 0
     data.fillna(0, inplace=True) 
     data['Units'] = data['Units'].apply(lambda x: max(x, 0))
     data = data.sort_values(by=['SKU', 'Week'])  # Sort by SKU, then Week
+    st.session_state.preprocessed_df = data.copy()
 
-    data.to_csv("saved_data/preprocessed_data.csv", index=False)
-    st.download_button("📥 Download Preprocessed CSV", data=data.to_csv(index=False).encode('utf-8'), file_name="preprocessed_data.csv")
-
-    # capping and detecting outliers
+    # Detecting and Capping Outliers
     st.write("Capping outliers...")
     sku_outlier_info = []
     for sku in data['SKU'].unique():
@@ -81,22 +77,15 @@ if uploaded_file:
             "Upper_Cap": round(upper, 2)
         })
         data.loc[sku_mask, 'Units'] = sku_data['Units'].clip(lower=lower, upper=upper)
-    # Convert to DataFrame
-    outlier_df = pd.DataFrame(sku_outlier_info)
-    # Save to CSV
-    outlier_df.to_csv("saved_data/outlier_summary.csv", index=False) 
-    st.download_button("📥 Save Outlier Summary", data=data.to_csv(index=False).encode('utf-8'), file_name="outliers_summary.csv")
+    st.session_state.outliers_df = data.copy()
+    st.session_state.outlier_summary = pd.DataFrame(sku_outlier_info)
 
-    #st.write("Number of outliers in 'Units'", len(outliers))
-    data.to_csv('saved_data/outliers_preprocessed.csv', index=False)
-    st.download_button("📥 Download Outliers Preprocessed", data=data.to_csv(index=False).encode('utf-8'), file_name="outliers_preprocessed.csv")
-
-    # encoding sku, creating sku encoded
+    # Encoding sku, creating SKU_encoded
     st.write("Encoding SKU...")
     le = LabelEncoder()
     data['SKU_encoded'] = le.fit_transform(data['SKU']).astype(int)
 
-    # feature engineering, creating lags and rolling mean
+    # Feature engineering, creating lags and rolling mean
     st.write("Feature Engineering...")
     for i in range(1, 5):
         data[f'lag_{i}'] = data.groupby('SKU')['Units'].shift(i)
@@ -105,31 +94,27 @@ if uploaded_file:
     data['rolling_mean_4'] = data.groupby('SKU')['Units'].shift(1).rolling(4).mean().reset_index(0, drop=True)
     data.fillna(0, inplace=True)
     data = data[data['Week'] >= (start_week + 4)]
-    data.to_csv("saved_data/features.csv", index=False)
-    st.download_button("📥 Download Features", data=data.to_csv(index=False).encode('utf-8'), file_name="features.csv")
-       
+    st.session_state.features_df = data.copy()
+
     features = ['Week', 'SKU_encoded', 'lag_1', 'lag_2', 'lag_3','lag_4',
             'rolling_mean_2', 'rolling_mean_3', 'rolling_mean_4']
     target = 'Units'
     features_to_scale = [f for f in features if f != 'SKU_encoded']
     
-    # applying robust scaler
+    # Applying robust scaler
     st.write("Scaling the data...")
     scaler = RobustScaler()
     data[features_to_scale] = scaler.fit_transform(data[features_to_scale])
     joblib.dump(scaler, 'saved_models/robust_scaler.save')
-    data.to_csv('saved_data/model_ready.csv', index=False)
-    st.download_button("📥 Download Model Ready Data", data=data.to_csv(index=False).encode('utf-8'), file_name="model_ready.csv")
-
-    
-    # train test split
+    st.session_state.model_ready_df = data.copy()
+ 
+    # Train test split
     all_weeks = sorted(data['Week'].unique())
     split_point = int(len(all_weeks) * 0.8)
     train_weeks = all_weeks[:split_point]
     test_weeks = all_weeks[split_point:]
     train = data[data['Week'].isin(train_weeks)]
     test = data[data['Week'].isin(test_weeks)]
-
     X_train, y_train = train[features], train[target]
     X_test, y_test = test[features], test[target]
     
@@ -163,14 +148,11 @@ if uploaded_file:
         st.dataframe(results_df)
 
         best_model_name = results_df.loc[0, 'Model']
-        best_model_file = best_model_name.lower()
-        with open("saved_models/best_model.txt", "w") as f:
-            f.write(best_model_file)
-
-        model = joblib.load(f"saved_models/{best_model_file}.joblib")
+        joblib.dump(best_model_name, 'saved_models/best_model.txt')
+        model = joblib.load(f"saved_models/{best_model_name.lower()}.joblib")
         scaler = joblib.load("saved_models/robust_scaler.save")
-        st.write("Forecasting using best model: ", best_model_name)
 
+        st.write("Forecasting using best model: ", best_model_name)
         forecast_weeks = 6
         forecast_dict = {}
         data = data.sort_values(['SKU', 'Week'])
@@ -216,7 +198,6 @@ if uploaded_file:
         forecast_df.columns = [f"Week_{i+1}" for i in range(forecast_weeks)]
         forecast_df['SKU'] = forecast_df.index.map(inverse_map)
         forecast_df = forecast_df[['SKU'] + [f"Week_{i+1}" for i in range(forecast_weeks)]]
-
         st.session_state.forecast_df = forecast_df
 
 #  Display forecast
@@ -228,3 +209,17 @@ if st.session_state.forecast_df is not None:
     if st.button("🔄 Reset Forecast View"):
         st.session_state.forecast_df = None
         st.session_state.trained = False
+
+# Sidebar Download Area
+st.sidebar.subheader("📥 Download Files")
+with st.sidebar.expander("Downloads"):
+    if st.session_state.preprocessed_df is not None:
+        st.sidebar.download_button("Preprocessed CSV", data=st.session_state.preprocessed_df.to_csv(index=False).encode('utf-8'), file_name="preprocessed_data.csv")
+    if st.session_state.outlier_summary is not None:
+        st.sidebar.download_button("Outlier Summary", data=st.session_state.outlier_summary.to_csv(index=False).encode('utf-8'), file_name="outliers_summary.csv")
+    if st.session_state.outliers_df is not None:
+        st.sidebar.download_button("Outliers Preprocessed", data=st.session_state.outliers_df.to_csv(index=False).encode('utf-8'), file_name="outliers_preprocessed.csv")
+    if st.session_state.features_df is not None:
+        st.sidebar.download_button("Features CSV", data=st.session_state.features_df.to_csv(index=False).encode('utf-8'), file_name="features.csv")
+    if st.session_state.model_ready_df is not None:
+        st.sidebar.download_button("Model Ready CSV", data=st.session_state.model_ready_df.to_csv(index=False).encode('utf-8'), file_name="model_ready.csv")
