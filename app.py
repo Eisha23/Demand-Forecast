@@ -24,6 +24,7 @@ for key in ['trained', 'forecast_df', 'preprocessed_df', 'outliers_df', 'outlier
 
 if "data_loaded" not in st.session_state:
     st.session_state.data_loaded = False
+    st.write("False")
 os.makedirs("saved_models", exist_ok=True)
 uploaded_file = st.file_uploader("Upload CSV", type="csv")
 if uploaded_file and not st.session_state.data_loaded:
