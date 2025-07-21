@@ -11,7 +11,7 @@ from sklearn.metrics import mean_squared_error, mean_absolute_error, r2_score
 from sklearn.ensemble import GradientBoostingRegressor
 from xgboost import XGBRegressor
 from lightgbm import LGBMRegressor
-from catboost import CatBoostRegressor
+from catboost import CatBoostRegressor, Pool
 
 # Setup
 st.set_page_config(page_title="Demand Forecast", layout="wide")
@@ -121,7 +121,7 @@ if st.session_state.file_processed and not st.session_state.trained:
     # Model training
     models = {
         'CatBoostRegressor': CatBoostRegressor(verbose=0, iterations=200, depth=6, learning_rate=0.1),
-        'XGB Regressor': XGBRegressor(n_estimators=500, learning_rate=0.03, max_depth=6, subsample=0.8, colsample_bytree=0.8, reg_alpha=0.1, reg_lambda=1.0, gamma=0.1, min_child_weight=3, verbosity=0, random_state=42),
+       # 'XGB Regressor': XGBRegressor(n_estimators=500, learning_rate=0.03, max_depth=6, subsample=0.8, colsample_bytree=0.8, reg_alpha=0.1, reg_lambda=1.0, gamma=0.1, min_child_weight=3, verbosity=0, random_state=42),
         'Light GBM Regressor': LGBMRegressor(n_estimators=400, learning_rate=0.05, max_depth=4, subsample=0.8, colsample_bytree=0.8, reg_alpha=0.1, reg_lambda=1.0, random_state=42, verbosity=-1),
         'Gradient Boosting': GradientBoostingRegressor(learning_rate=0.1, random_state=42),
     }
@@ -129,7 +129,8 @@ if st.session_state.file_processed and not st.session_state.trained:
     for name, model in models.items():
         st.write("Training:", name)
         if name == 'CatBoostRegressor':
-            model.fit(X_train, y_train, cat_features=['SKU_encoded'])
+            train_pool = Pool(data=X_train, label=y_train, cat_features=['SKU_encoded'])
+            model.fit(train_pool)
         else:
             model.fit(X_train, y_train)
         joblib.dump(model, f"saved_models/{name.lower()}.joblib")
