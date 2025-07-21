@@ -22,9 +22,11 @@ for key in ['trained', 'forecast_df', 'preprocessed_df', 'outliers_df', 'outlier
     if key not in st.session_state:
         st.session_state[key] = None if key != 'trained' else False
 
+if "data_loaded" not in st.session_state:
+    st.session_state.data_loaded = False
 os.makedirs("saved_models", exist_ok=True)
 uploaded_file = st.file_uploader("Upload CSV", type="csv")
-if uploaded_file:
+if uploaded_file and not st.session_state.data_loaded:
     data = pd.read_csv(uploaded_file)[['SKU', 'Week', 'Units']]
     st.success("CSV loaded successfully.")
     st.write("Preprocessing file...")
@@ -195,6 +197,8 @@ if uploaded_file:
     forecast_df = forecast_df[['SKU'] + [f"Week_{i+1}" for i in range(forecast_weeks)]]
     st.session_state.forecast_df = forecast_df
 
+st.session_state.data_loaded = True
+
 #  Display forecast
 if st.session_state.forecast_df is not None:
     st.subheader("📈 Forecast of Next 6 Weeks")
@@ -204,6 +208,7 @@ if st.session_state.forecast_df is not None:
     if st.button("🔄 Reset Forecast View"):
         st.session_state.clear()
         st.rerun() 
+
 
 # Sidebar Download Area
 st.sidebar.subheader("📥 Download Files")
