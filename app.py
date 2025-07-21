@@ -129,8 +129,7 @@ if st.session_state.file_processed and not st.session_state.trained:
     for name, model in models.items():
         st.write("Training:", name)
         if name == 'CatBoostRegressor':
-            train_pool = Pool(data=X_train, label=y_train, cat_features=['SKU_encoded'])
-            model.fit(train_pool)
+            model.fit(X_train, y_train, cat_features=['SKU_encoded'])
         else:
             model.fit(X_train, y_train)
         joblib.dump(model, f"saved_models/{name.lower()}.joblib")
@@ -179,7 +178,7 @@ if st.session_state.file_processed and not st.session_state.trained:
             scaled_numeric = scaler.transform(input_df[features_to_scale])
             scaled_df = pd.DataFrame(scaled_numeric, columns=features_to_scale)
             scaled_df.insert(0, 'SKU_encoded', sku)
-            pred = model.predict(scaled_df)[0]
+            pred = model.predict(scaled_df[features])[0]
             pred = max(0, pred)
             forecasts.append(round(pred, 2))
             lags = [pred] + lags[:3]
