@@ -39,7 +39,7 @@ if uploaded_file:
         end_week = st.number_input("End Week", min_value=start_week, value=start_week + 5)
     
     # Fill missing weeks with nan units
-    st.write("Filling missing week...")
+    st.write("Filling missing weeks...")
     full_weeks = list(range(start_week, end_week + 1))
     data['SKU'] = data['SKU'].astype(str)
     full_index = pd.MultiIndex.from_product([data['SKU'].unique(), full_weeks], names=['SKU', 'Week'])
@@ -113,7 +113,7 @@ if uploaded_file:
     X_train, y_train = train[features], train[target]
     X_test, y_test = test[features], test[target]
     
-    
+    st.write("Training models...")
     models = {
             'CatBoostRegressor': CatBoostRegressor(verbose=0, iterations=200, depth=6, learning_rate=0.1, random_strength=0.01, l2_leaf_reg=2),
             'XGB Regressor': XGBRegressor(n_estimators=500, learning_rate=0.03, max_depth=6, subsample=0.8, colsample_bytree=0.8, reg_alpha=0.1, reg_lambda=1.0, gamma=0.1, min_child_weight=3, verbosity=0, random_state=42),
