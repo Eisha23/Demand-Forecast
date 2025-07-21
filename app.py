@@ -198,6 +198,7 @@ if uploaded_file and not st.session_state.data_loaded:
     forecast_df = forecast_df[['SKU'] + [f"Week_{i+1}" for i in range(forecast_weeks)]]
     st.session_state.forecast_df = forecast_df
 
+st.write("Here")
 st.session_state.data_loaded = True
 
 #  Display forecast
