@@ -48,6 +48,7 @@ if st.session_state.file_processed and not st.session_state.trained:
         end_week = st.number_input("End Week", min_value=start_week, value=start_week + 5)
 
     # Fill missing weeks
+    st.write("Filling missing weeks...")
     full_weeks = list(range(start_week, end_week + 1))
     data['SKU'] = data['SKU'].astype(str)
     full_index = pd.MultiIndex.from_product([data['SKU'].unique(), full_weeks], names=['SKU', 'Week'])
@@ -58,6 +59,7 @@ if st.session_state.file_processed and not st.session_state.trained:
     st.session_state.preprocessed_df = data.copy()
 
     # Capping outliers
+    st.write("Deecting and Capping outliers")
     sku_outlier_info = []
     for sku in data['SKU'].unique():
         sku_mask = data['SKU'] == sku
@@ -81,8 +83,10 @@ if st.session_state.file_processed and not st.session_state.trained:
     st.session_state.outlier_summary = pd.DataFrame(sku_outlier_info)
 
     # Encoding and feature engineering
+    st.write("Encoding SKUs")
     le = LabelEncoder()
     data['SKU_encoded'] = le.fit_transform(data['SKU']).astype(int)
+    st.write("Feature Engineering")
     for i in range(1, 5):
         data[f'lag_{i}'] = data.groupby('SKU')['Units'].shift(i)
     data['rolling_mean_2'] = data.groupby('SKU')['Units'].shift(1).rolling(2).mean().reset_index(0, drop=True)
@@ -98,6 +102,7 @@ if st.session_state.file_processed and not st.session_state.trained:
     features_to_scale = [f for f in features if f != 'SKU_encoded']
 
     # Scaling
+    st.write("Scaling")
     scaler = RobustScaler()
     data[features_to_scale] = scaler.fit_transform(data[features_to_scale])
     joblib.dump(scaler, 'saved_models/robust_scaler.save')
@@ -116,12 +121,8 @@ if st.session_state.file_processed and not st.session_state.trained:
     # Model training
     models = {
         'CatBoostRegressor': CatBoostRegressor(verbose=0, iterations=200, depth=6, learning_rate=0.1),
-        'XGB Regressor': XGBRegressor(n_estimators=500, learning_rate=0.03, max_depth=6,
-                                      subsample=0.8, colsample_bytree=0.8, reg_alpha=0.1, reg_lambda=1.0,
-                                      gamma=0.1, min_child_weight=3, verbosity=0, random_state=42),
-        'Light GBM Regressor': LGBMRegressor(n_estimators=400, learning_rate=0.05, max_depth=4,
-                                             subsample=0.8, colsample_bytree=0.8, reg_alpha=0.1,
-                                             reg_lambda=1.0, random_state=42, verbosity=-1),
+        'XGB Regressor': XGBRegressor(n_estimators=500, learning_rate=0.03, max_depth=6, subsample=0.8, colsample_bytree=0.8, reg_alpha=0.1, reg_lambda=1.0, gamma=0.1, min_child_weight=3, verbosity=0, random_state=42),
+        'Light GBM Regressor': LGBMRegressor(n_estimators=400, learning_rate=0.05, max_depth=4, subsample=0.8, colsample_bytree=0.8, reg_alpha=0.1, reg_lambda=1.0, random_state=42, verbosity=-1),
         'Gradient Boosting': GradientBoostingRegressor(learning_rate=0.1, random_state=42),
     }
     results = []
